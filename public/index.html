@@ -80,8 +80,8 @@
   <div class="section">
     <h2>Apps</h2>
     <div class="chips" id="apps">
-      <button onclick="app('YouTube','youtube')">YouTube</button>
-      <button onclick="app('Netflix','netflix')">Netflix</button>
+      <button onclick="app('YouTube')">YouTube</button>
+      <button onclick="app('Netflix')">Netflix</button>
       <button onclick="load('app')">Cargar apps</button>
     </div>
   </div>
@@ -92,7 +92,7 @@
 
   const key = (k) => get('/api/key?k=' + k);
   const power = () => get('/api/power');
-  const app = (name, url) => get('/api/app?name=' + encodeURIComponent(name) + '&url=' + encodeURIComponent(url));
+  const app = (name) => get('/api/app?name=' + encodeURIComponent(name));
   const setSource = (id) => get('/api/source?id=' + encodeURIComponent(id));
   const load = (what) => get('/api/' + what); // sin args => la TV responde por SSE
 
@@ -130,7 +130,7 @@
     for (const a of list) {
       const b = document.createElement('button');
       b.textContent = a.name;
-      b.onclick = () => app(a.name, a.url || a.name);
+      b.onclick = () => app(a.name);
       $('apps').appendChild(b);
     }
   }

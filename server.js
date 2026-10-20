@@ -20,13 +20,33 @@ const PAGE = new URL('./public/index.html', import.meta.url);
 const tv = new HisenseTV();
 let connected = false;
 
+// Guardamos la última lista de apps que manda la TV, para lanzar cada una con
+// sus datos REALES (url, storeType, appId). Lanzarla con datos inventados da
+// "sin conexión" en la TV.
+let appCache = [];
+tv.on('apps', (d) => { if (Array.isArray(d)) appCache = d; });
+
 async function ensureConnected() {
   if (connected) return true;
-  try { await tv.connect(); connected = true; tv.getVolume(); tv.getState(); }
-  catch (e) { console.error('No pude conectar a la TV:', e.message); connected = false; }
+  try {
+    await tv.connect();
+    connected = true;
+    tv.getVolume(); tv.getState(); tv.apps(); tv.sources(); // llena las caches
+  } catch (e) { console.error('No pude conectar a la TV:', e.message); connected = false; }
   return connected;
 }
 tv.on('close', () => { connected = false; });
+
+// Busca una app por nombre en lo que reportó la TV y la lanza con sus campos
+// reales (sin el icono, que es enorme). Devuelve false si no la encuentra.
+function launchByName(name) {
+  const wanted = name.toLowerCase();
+  const hit = appCache.find((a) => (a.name || '').toLowerCase().includes(wanted));
+  if (!hit) return false;
+  const { httpIcon, ...rest } = hit; // quitamos el icono base64
+  tv.launch(rest);
+  return true;
+}
 
 // --- SSE: clientes (navegadores) suscritos al estado en vivo ---------------
 const clients = new Set();
@@ -81,8 +101,12 @@ const server = http.createServer(async (req, res) => {
         if (id != null) tv.setSource(id); else tv.sources();
       } else if (p === '/api/app') {
         const name = url.searchParams.get('name');
-        if (name) tv.launch({ name, url: url.searchParams.get('url') || name, urlType: 37, storeType: 0 });
-        else tv.apps();
+        if (!name) { tv.apps(); }
+        else if (!launchByName(name)) {
+          // Aún no tenemos la lista: pídela y avisa para reintentar.
+          tv.apps();
+          return send(res, 503, { ok: false, error: `"${name}" no está en la lista todavía; reintenta en 1s` });
+        }
       } else return send(res, 404, { ok: false });
       return send(res, 200, { ok: true });
     } catch (e) {
