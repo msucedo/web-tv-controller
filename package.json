@@ -1,0 +1,8 @@
+{
+  "name": "hisense-remote",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "discover": "node discover.js"
+  }
+}
