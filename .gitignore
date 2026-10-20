@@ -1,3 +1,5 @@
 # Datos de tu TV y el token de emparejamiento: son tuyos, no del código.
-tv.json
+apk/
+certs/
 node_modules/
+tv.json

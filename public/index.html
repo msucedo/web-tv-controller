@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Control TV</title>
+<style>
+  :root { --bg:#0d0f14; --panel:#1a1e27; --panel2:#232833; --accent:#4ea1ff; --text:#eef2f8; --muted:#8b93a3; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,system-ui,sans-serif; }
+  body { display:flex; flex-direction:column; align-items:center; gap:14px;
+    padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom)); }
+  .status { font-size:13px; color:var(--muted); min-height:18px; text-align:center; }
+  .status b { color:var(--text); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#d9534f; margin-right:6px; vertical-align:middle; }
+  .dot.on { background:#5cb85c; }
+  .row { display:flex; gap:12px; width:100%; max-width:360px; justify-content:center; }
+  button { border:0; border-radius:16px; background:var(--panel); color:var(--text);
+    font-size:17px; padding:0; cursor:pointer; transition:transform .05s, background .15s;
+    display:flex; align-items:center; justify-content:center; }
+  button:active { transform:scale(.93); background:var(--panel2); }
+  .pill { flex:1; height:52px; }
+  .pill.accent { background:var(--accent); color:#031018; font-weight:600; }
+  /* D-pad */
+  .dpad { position:relative; width:260px; height:260px; max-width:80vw; max-height:80vw; }
+  .dpad button { position:absolute; background:var(--panel); }
+  .dpad .up    { top:0; left:33.3%; width:33.3%; height:33.3%; border-radius:20px 20px 8px 8px; }
+  .dpad .down  { bottom:0; left:33.3%; width:33.3%; height:33.3%; border-radius:8px 8px 20px 20px; }
+  .dpad .left  { left:0; top:33.3%; width:33.3%; height:33.3%; border-radius:20px 8px 8px 20px; }
+  .dpad .right { right:0; top:33.3%; width:33.3%; height:33.3%; border-radius:8px 20px 20px 8px; }
+  .dpad .ok    { top:33.3%; left:33.3%; width:33.3%; height:33.3%; border-radius:50%;
+    background:var(--panel2); font-weight:600; font-size:18px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; width:100%; max-width:360px; }
+  .grid3 button { height:52px; }
+  .vol { flex-direction:column; font-size:12px; color:var(--muted); gap:2px; }
+  .vol span { font-size:22px; color:var(--text); font-weight:600; }
+  .section { width:100%; max-width:360px; }
+  .section h2 { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin:4px 0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chips button { height:40px; padding:0 14px; font-size:14px; background:var(--panel2); }
+  .arrow { font-size:26px; }
+</style>
+</head>
+<body>
+  <div class="status"><span id="dot" class="dot"></span><span id="state">conectando…</span></div>
+
+  <div class="row">
+    <button class="pill accent" onclick="power()">⏻ Encender/Apagar</button>
+  </div>
+
+  <div class="dpad">
+    <button class="up"    onclick="key('up')"><span class="arrow">▲</span></button>
+    <button class="left"  onclick="key('left')"><span class="arrow">◀</span></button>
+    <button class="ok"    onclick="key('ok')">OK</button>
+    <button class="right" onclick="key('right')"><span class="arrow">▶</span></button>
+    <button class="down"  onclick="key('down')"><span class="arrow">▼</span></button>
+  </div>
+
+  <div class="row">
+    <button class="pill" onclick="key('back')">↩ Atrás</button>
+    <button class="pill" onclick="key('home')">⌂ Inicio</button>
+    <button class="pill" onclick="key('menu')">☰ Menú</button>
+  </div>
+
+  <div class="grid3">
+    <button onclick="key('voldown')">🔉 −</button>
+    <button class="vol"><span id="vol">—</span>volumen</button>
+    <button onclick="key('volup')">🔊 +</button>
+    <button onclick="key('mute')">🔇 Mute</button>
+    <button onclick="key('info')">ℹ️ Info</button>
+    <button onclick="key('source')">⇄ Fuente</button>
+  </div>
+
+  <div class="section">
+    <h2>Fuentes</h2>
+    <div class="chips" id="sources"><button onclick="load('source')">Cargar fuentes</button></div>
+  </div>
+  <div class="section">
+    <h2>Apps</h2>
+    <div class="chips" id="apps">
+      <button onclick="app('YouTube','youtube')">YouTube</button>
+      <button onclick="app('Netflix','netflix')">Netflix</button>
+      <button onclick="load('app')">Cargar apps</button>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const get = (path) => fetch(path).then(r => r.json()).catch(() => ({ ok:false }));
+
+  const key = (k) => get('/api/key?k=' + k);
+  const power = () => get('/api/power');
+  const app = (name, url) => get('/api/app?name=' + encodeURIComponent(name) + '&url=' + encodeURIComponent(url));
+  const setSource = (id) => get('/api/source?id=' + encodeURIComponent(id));
+  const load = (what) => get('/api/' + what); // sin args => la TV responde por SSE
+
+  function setConnected(on) {
+    $('dot').className = 'dot' + (on ? ' on' : '');
+    $('state').innerHTML = on ? 'TV <b>conectada</b>' : 'TV desconectada (toca Encender)';
+  }
+
+  // Estado en vivo desde el servidor (Server-Sent Events).
+  const es = new EventSource('/api/events');
+  es.addEventListener('hello', (e) => setConnected(JSON.parse(e.data).connected));
+  es.addEventListener('volume', (e) => {
+    const d = JSON.parse(e.data);
+    const v = typeof d === 'number' ? d : (d.volume_value ?? d.volume ?? d.value);
+    if (v != null) $('vol').textContent = v;
+    setConnected(true);
+  });
+  es.addEventListener('state', () => setConnected(true));
+  es.addEventListener('sources', (e) => renderSources(JSON.parse(e.data)));
+  es.addEventListener('apps', (e) => renderApps(JSON.parse(e.data)));
+
+  function renderSources(list) {
+    if (!Array.isArray(list)) return;
+    $('sources').innerHTML = '';
+    for (const s of list) {
+      const b = document.createElement('button');
+      b.textContent = s.displayname || s.sourcename || s.sourceid;
+      b.onclick = () => setSource(s.sourceid);
+      $('sources').appendChild(b);
+    }
+  }
+  function renderApps(list) {
+    if (!Array.isArray(list)) return;
+    $('apps').innerHTML = '';
+    for (const a of list) {
+      const b = document.createElement('button');
+      b.textContent = a.name;
+      b.onclick = () => app(a.name, a.url || a.name);
+      $('apps').appendChild(b);
+    }
+  }
+</script>
+</body>
+</html>

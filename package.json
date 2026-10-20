@@ -3,6 +3,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "discover": "node discover.js"
+    "discover": "node discover.js",
+    "pair": "node pair.js",
+    "wol": "node wol.js",
+    "start": "node server.js"
   }
 }
